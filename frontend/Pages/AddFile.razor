@@ -1,0 +1,89 @@
+﻿@page "/AddFile"
+@inject HttpClient Http
+@using SharedLib;
+@inject IJSRuntime JS
+
+<PageTitle>Uppload FIles</PageTitle>
+
+<h1>Hello, world!</h1>
+
+<InputFile OnChange="@OnInputFileChange" multiple />
+
+@if (uploadResults.Count > 0)
+{
+    <ul>
+        @foreach (var file in uploadResults)
+        {
+            <li>
+                <a href="@file.Location" target="_blank">@file.FileName</a>
+                <button class="btn btn-secondary" @onclick="@(()=> DownloadFile(@file.FileName))">Lataa</button>
+                <button style="font-size: 75%" class="btn btn-alert" @onclick="@(()=> RemoveFile(@file.FileName))">
+                    <span class="oi oi-remove"></span>
+                </button>
+            </li>
+
+        }
+    </ul>
+}
+
+
+
+@code {
+    private int maxAllowedFiles = 5;
+    private long maxFileSize = 1024 * 5000;
+    private List<UploadResult> uploadResults = new List<UploadResult>();
+
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        using var content = new MultipartFormDataContent();
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+
+
+            content.Add(
+                content: fileContent,
+                name: "\"files\"",
+                fileName: file.Name
+                );
+
+
+        }
+
+        var response = await Http.PostAsync("/api/File", content);
+
+        var newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
+
+        if (newUploadResults is not null)
+        {
+            uploadResults = uploadResults.Concat(newUploadResults).ToList();
+        }
+    }
+
+    private async Task DownloadFile(string fileName)
+    {
+        var respone = await Http.GetAsync($"/api/File/lataa/{fileName}");
+
+        if (!respone.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "Tiedostoa ei löytynyt.");
+        }
+        else
+        {
+            var fileStream = respone.Content.ReadAsStream();
+            using var streamRef = new DotNetStreamReference(stream: fileStream);
+            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+        }
+    }
+
+    private async Task RemoveFile(string fileName)
+    {
+        await Http.DeleteAsync($"/api/File/{fileName}");
+
+        uploadResults.Remove(uploadResults.Find(u => u.FileName == fileName));
+    }
+}
+

@@ -1,0 +1,124 @@
+﻿@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+
+
+
+<EditForm Model="a" OnValidSubmit="Save" Context="formContext">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label for="id">ID</label>
+        <InputNumber id="id" @bind-Value="a.Idauditointi" class="form-control" Disabled />
+    </div>
+
+    <div class="mb-3">
+        <label for="selite">Selite</label>
+        <InputText id="selite" @bind-Value="a.Selite" class="form-control" Disabled="@disabled" />
+        <ValidationMessage For="()=>a.Selite" />
+    </div>
+
+    <div class="mb-3">
+        <label for="luontiaika">Tehty</label>
+        <InputDate id="luontiaika" @bind-Value="a.Luotu" @bind-Value:format="dd.MM.yyyy" class="form-control" Disabled />
+    </div>
+
+    <div class="mb-3">
+        <label for="kayttaja">Käyttäjä</label>
+        <InputText id="kayttaja" @bind-Value="a.KayttajaNimi" class="form-control" Disabled />
+    </div>
+
+
+    @if (a.Vaatimukset is not null)
+    {
+        <div class="mb-3">
+            <table class="table">
+                <tr>
+                    <th>Vaatimus</th>
+                    <th>Pakollisuus</th>
+                    <th>Tulos</th>
+                </tr>
+                @foreach (var vaatimus in a.Vaatimukset)
+                {
+                    <tr>
+                        <td>@vaatimus.Kuvaus</td>
+                        <td>@vaatimus.Pakollisuus</td>
+                        <td>
+                            @if (vaatimus.Taytetty == 1)
+                            {
+                                <span style="color: green">täytetty</span>
+                            }
+                            else
+                            {
+                                <span style="color: red">ei täytetty</span>
+                            }
+                        </td>
+
+                    </tr>
+                }
+            </table>
+        </div>
+    }
+
+    @if (disabled)
+    {
+        <button type="button" class="btn btn-primary" @onclick="Sulje">Sulje</button>
+        <AuthorizeView Roles="admin" Context="authContext">
+            <button type="button" class="btn btn-secondary" @onclick="Muokkaa">Muokkaa</button>
+            <button type="button" class="btn btn-danger" @onclick="Poista">Poista</button>
+        </AuthorizeView>
+    }
+    else
+    {
+        <button type="submit" class="btn btn-primary">Tallenna</button>
+        <button type="button" class="btn btn-secondary" @onclick="Cancel">Peruuta</button>
+    }
+</EditForm>
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+    AuditointiDTO? a = new AuditointiDTO();
+
+    public bool lisaaVaatimus = false;
+    public bool disabled = true;
+
+    [Parameter]
+    public int? Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        a = await Http.GetFromJsonAsync<AuditointiDTO>($"/auditointi/{Id}");
+    }
+
+    async Task Sulje()
+    {
+        await Modal.CloseAsync();
+    }
+
+    void Muokkaa()
+    {
+        disabled = false;
+    }
+
+    async Task Save()
+    {
+        if (a is not null) await Http.PutAsJsonAsync<AuditointiDTO>($"/auditointi/edit", a);
+        disabled = true;
+    }
+
+    async Task Cancel()
+    {
+        a = await Http.GetFromJsonAsync<AuditointiDTO>($"/auditointi/{Id}");
+        disabled = true;
+
+    }
+
+
+    async Task Poista()
+    {
+        if (a is not null) await Http.DeleteAsync($"/auditointi/{Id}");
+        await Modal.CloseAsync();
+    }
+
+}

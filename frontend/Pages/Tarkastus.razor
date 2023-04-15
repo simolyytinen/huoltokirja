@@ -1,0 +1,169 @@
+﻿@page "/tarkastus"
+@using SharedLib
+@inject HttpClient Http
+
+<PageTitle>Tarkastukset</PageTitle>
+
+
+<h1>Tarkastukset</h1>
+
+<button style="margin: 2em 0 2em 0" class="btn btn-primary" @onclick="@ShowUusiTarkastus">Uusi tarkastus</button>
+
+@if (tarkastukset != null && tilat != null)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th style="cursor:pointer" @onclick="filterKohde">Kohde
+                @if (kohteet is null || kohteet.Length == 0) {<i class="fa-solid fa-filter-circle-xmark"></i>}
+                else {<i class="fa-solid fa-filter"></i>}
+                </th>
+                <th>Syy</th>
+                <th>Havainnot</th>
+                <th>Tila</th>
+                <th style="cursor:pointer" @onclick="sortDate">Luotu
+                @if (sort.Equals("")) {<i class="fa-solid fa-sort"></i>}
+                else if (sort.Equals("laskeva")) {<i class="fa-solid fa-sort-down"></i>}
+                else if (sort.Equals("nouseva")) {<i class="fa-solid fa-sort-up"></i> }
+                </th>
+                <th>Tekijä</th>
+                <th></th>
+
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in tarkastukset)
+            {
+                int Id = item.Idtarkastus;
+                <tr>
+                    <td>@item.Idtarkastus</td>
+                    <td>@item.KohteenNimi</td>
+                    <td>@item.Syy</td>
+                    <td>@item.Havainnot</td>
+                    <td>@tilat.Find(x => x.IdkohteenTila == item.TilanMuutos).Kuvaus</td>
+                    <td>@item.Aikaleima.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@item.KayttajanNimi</td>
+                    <td>
+                        <button style="font-size: 75%" class="btn btn-primary" @onclick="@(e => ShowTarkastus(Id))">
+                            <span class="oi oi-pencil"></span>
+                        </button>
+                    </td>
+                </tr>
+
+            }
+        </tbody>
+    </table>
+}
+else
+{
+<div class="text-center">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+}
+
+@code {
+    [CascadingParameter] public IModalService Modal { get; set; } = default!;
+    private List<TilaDTO>? tilat;
+
+    private List<TarkastusDTO>? tarkastukset;
+    private List<TarkastusDTO>? filtteroimaton;
+    private string sort = "";
+    private int[]? kohteet;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tilat = await Http.GetFromJsonAsync<List<TilaDTO>>("/tila/all");
+        tilat.Add(new TilaDTO { IdkohteenTila = 0, Kuvaus = "ei muutosta" });
+        tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki");
+        filtteroimaton = tarkastukset;
+    }
+
+    private async Task sortDate()
+    {
+        if (sort.Equals(""))
+        {
+            sort = "laskeva";
+            tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki/desc");
+            filtteroimaton = tarkastukset;
+        }
+        else if (sort.Equals("laskeva"))
+        {
+            sort = "nouseva";
+            tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki/asc");
+            filtteroimaton = tarkastukset;
+        }
+        else
+        {
+            sort = "";
+            tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki");
+            filtteroimaton = tarkastukset;
+        }
+
+        if (kohteet != null && kohteet.Length != 0 && tarkastukset != null)
+        {
+            tarkastukset = tarkastukset.FindAll(x => kohteet.Contains(x.Idkohde));
+        }
+    }
+
+    private async Task filterKohde()
+    {
+        var parameters = new ModalParameters()
+            .Add(nameof(FilterKohde.valitutId), kohteet);
+
+
+        var filterModal = Modal.Show<FilterKohde>("Valitse kohteet", parameters);
+        var result = await filterModal.Result;
+
+        tarkastukset = filtteroimaton;
+
+        if (result.Confirmed && result.Data != null)
+        {
+            kohteet = (int[])result.Data;
+        }
+
+        if (kohteet != null && kohteet.Length != 0)
+        {
+
+            if (tarkastukset != null) tarkastukset = tarkastukset.FindAll(x => kohteet.Contains(x.Idkohde));
+        }
+
+    }
+
+    private async Task ShowUusiTarkastus()
+    {
+        var uusiModal = Modal.Show<UusiTarkastus>("Uusi tarkastus");
+        var result = await uusiModal.Result;
+
+        await Päivitä();
+    }
+
+    private async Task ShowTarkastus(int Id)
+    {
+        var parameters = new ModalParameters()
+        .Add(nameof(TarkastusDetail.Id), Id);
+
+        var uusiModal = Modal.Show<TarkastusDetail>("Tarkastus", parameters);
+        var result = await uusiModal.Result;
+
+        await Päivitä();
+
+    }
+
+    private async Task Päivitä()
+    {
+        if (sort.Equals("laskeva")) tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki/desc");
+        else if (sort.Equals("nouseva")) tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki/asc");
+        else tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki");
+        filtteroimaton = tarkastukset;
+
+        if (kohteet != null && kohteet.Length != 0)
+        {
+
+            if (tarkastukset != null) tarkastukset = tarkastukset.FindAll(x => kohteet.Contains(x.Idkohde));
+        }
+    }
+    }
+

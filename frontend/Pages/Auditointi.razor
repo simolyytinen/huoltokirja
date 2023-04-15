@@ -1,0 +1,267 @@
+﻿@page "/auditointi"
+@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<PageTitle>Auditoinnit</PageTitle>
+
+<h1 class="mb-4">Auditoinnit</h1>
+
+<div class="mb-5">
+	<button class="btn btn-success" @onclick="Start">Aloita uusi auditointi</button>
+	<button class="btn btn-primary" @onclick="Auditointipohjat">Auditointipohjat</button>
+</div>
+
+
+<button class="btn btn-secondary" @onclick="TyhjennaFilter">Tyhjennä suodattimet</button>
+
+@if (auditoinnit != null)
+{
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>Selite</th>
+                <th style="cursor:pointer" @onclick="@(() => { if (sort.Equals("desc")) Lajittele("asc"); else Lajittele("desc"); })">
+                    Päivämäärä
+                    @if (sort.Equals("asc"))
+                    {<i class="fa-solid fa-sort-up"></i>}
+                    else if (sort.Equals("desc"))
+                    {<i class="fa-solid fa-sort-down"></i>}
+                    else
+                    {<i class="fa-solid fa-sort"></i>}
+                </th>
+				<th style="cursor:pointer" @onclick="filterKayttaja">
+                    Tekijä
+                    @if (tekija is null || tekija.Length == 0)
+                    {<i class="fa-solid fa-filter-circle-xmark"></i>}
+                    else
+                    {<i class="fa-solid fa-filter"></i>}
+                </th>
+				<th style="cursor:pointer" @onclick="filterKohde">
+                    Kohde
+                    @if (kohteet is null || kohteet.Length == 0)
+                    {<i class="fa-solid fa-filter-circle-xmark"></i>}
+                    else
+                    {<i class="fa-solid fa-filter"></i>}
+                </th>
+                <th>
+                    <span style="cursor:pointer" @onclick="@(() => { if (sort.Equals("tulosDesc")) Lajittele("tulosAsc"); else Lajittele("tulosDesc"); })">
+                        Lopputulos
+                        @if (sort.Equals("tulosAsc"))
+                        {<i class="fa-solid fa-sort-up"></i>}
+                        else if (sort.Equals("tulosDesc"))
+                        {<i class="fa-solid fa-sort-down"></i>}
+                        else
+                        {<i class="fa-solid fa-sort"></i>}
+                    </span>
+                    <span style="cursor:pointer" @onclick="filterLopputulos">
+                        @if (lopputulokset is null || lopputulokset.Length == 0)
+                        {<i class="fa-solid fa-filter-circle-xmark"></i>}
+                        else
+                        {<i class="fa-solid fa-filter"></i>}
+                    </span>
+                </th>
+                <th>
+
+                </th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var item in auditoinnit)
+			{
+				<tr>
+					<td>@item.Idauditointi</td>
+					<td>@item.Selite</td>
+					<td>@item.Luotu.ToString("dd.MM.yyyy HH:mm")</td>
+					<td>@item.KayttajaNimi</td>
+					<td>@item.KohdeNimi</td>
+					<td>
+						@if (item.Lopputulos == 1)
+						{
+							<span style="color: green">hyväksytty</span>
+						}
+						else
+						{
+							<span style="color: red">hylätty</span>
+						}
+						
+					</td>
+                    <td>
+                        <button style="font-size: 75%" class="btn btn-primary" @onclick="@(()=> AuditointiTarkastelu(item.Idauditointi))">
+                            <i class="oi oi-list"></i>
+                        </button>
+                    </td>
+				</tr>
+			}
+
+		</tbody>
+	</table>
+}
+else
+{
+	<div class="text-center">
+		<div class="spinner-border text-primary" role="status">
+			<span class="visually-hidden">Loading...</span>
+		</div>
+	</div>
+}
+
+
+
+
+
+@code {
+    private List<AuditointiDTO>? auditoinnit;
+    private List<AuditointiDTO>? filtteroimaton;
+    private int[]? kohteet;
+    private int[]? tekija;
+    private int[]? lopputulokset;
+    private string sort = "none";
+
+    protected override async Task OnInitializedAsync()
+    {
+        auditoinnit = await Http.GetFromJsonAsync<List<AuditointiDTO>>("/auditointi/all");
+        filtteroimaton = auditoinnit;
+        Filter();
+        Lajittele(sort);
+    }
+
+    private void Auditointipohjat()
+    {
+        NavigationManager.NavigateTo("/auditointipohjat");
+    }
+
+
+    async Task Start()
+    {
+        var auditModal = ModalService.Show<StartAudit>("Auditointi");
+        var result = await auditModal.Result;
+
+        await OnInitializedAsync();
+    }
+
+    private async Task filterKohde()
+    {
+        var parameters = new ModalParameters()
+            .Add(nameof(FilterKohde.valitutId), kohteet);
+
+
+        var filterModal = ModalService.Show<FilterKohde>("Valitse kohteet", parameters);
+        var result = await filterModal.Result;
+
+        if (result.Confirmed && result.Data != null)
+        {
+            kohteet = (int[])result.Data;
+        }
+
+        Filter();
+
+    }
+
+    private async Task filterKayttaja()
+    {
+        var parameters = new ModalParameters()
+            .Add(nameof(FilterKayttaja.valitutId), tekija);
+
+
+        var filterModal = ModalService.Show<FilterKayttaja>("Valitse käyttäjät", parameters);
+        var result = await filterModal.Result;
+
+        if (result.Confirmed && result.Data != null)
+        {
+            tekija = (int[])result.Data;
+        }
+
+        Filter();
+    }
+
+    private async Task filterLopputulos()
+    {
+        var parameters = new ModalParameters()
+            .Add(nameof(FilterLopputulos.valitutId), lopputulokset);
+
+
+        var filterModal = ModalService.Show<FilterLopputulos>("Valitse näytettävät", parameters);
+        var result = await filterModal.Result;
+
+        if (result.Confirmed && result.Data != null)
+        {
+            lopputulokset = (int[])result.Data;
+        }
+
+        Filter();
+    }
+
+    private void Filter()
+    {
+        auditoinnit = filtteroimaton;
+
+        if (lopputulokset != null && lopputulokset.Length != 0)
+        {
+
+            if (auditoinnit != null) auditoinnit = auditoinnit.FindAll(x => lopputulokset.Contains((int)x.Lopputulos));
+        }
+
+        if (tekija != null && tekija.Length != 0)
+        {
+
+            if (auditoinnit != null) auditoinnit = auditoinnit.FindAll(x => tekija.Contains(x.Idkayttaja));
+        }
+
+        if (kohteet != null && kohteet.Length != 0)
+        {
+
+            if (auditoinnit != null) auditoinnit = auditoinnit.FindAll(x => kohteet.Contains(x.Idkohde));
+        }
+    }
+
+    private void TyhjennaFilter()
+    {
+        auditoinnit = filtteroimaton;
+        Lajittele(sort);
+        tekija = null;
+        kohteet = null;
+        lopputulokset = null;
+    }
+
+    private void Lajittele(string s)
+    {
+        if (auditoinnit is not null) {
+            if (s.Equals("desc"))
+            {
+                sort = "desc";
+                auditoinnit = auditoinnit.OrderByDescending(x => x.Luotu).ToList();
+            }
+            else if (s.Equals("asc"))
+            {
+                sort = "asc";
+                auditoinnit = auditoinnit.OrderBy(x => x.Luotu).ToList();
+            }
+            else if (s.Equals("tulosDesc"))
+            {
+                sort = "tulosDesc";
+                auditoinnit = auditoinnit.OrderByDescending(x => x.Lopputulos).ToList();
+            }
+            else if (s.Equals("tulosAsc"))
+            {
+                sort = "tulosAsc";
+                auditoinnit = auditoinnit.OrderBy(x => x.Lopputulos).ToList();
+            }
+        }
+    }
+
+    async Task AuditointiTarkastelu(int? Id)
+    {
+        var parameters = new ModalParameters()
+            .Add(nameof(AuditointiDetail.Id), Id);
+
+        var detailModal = ModalService.Show<AuditointiDetail>("Auditoinnin tiedot", parameters);
+        var result = await detailModal.Result;
+
+        await OnInitializedAsync();
+    }
+
+}

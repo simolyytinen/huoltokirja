@@ -1,0 +1,100 @@
+﻿@using SharedLib
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+@if (muutokset == null)
+{
+    <p><em>ladataan...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nimi</th>
+                <th>Kuvaus</th>
+                <th>Sijainti</th>
+                <th>Tunnus</th>
+                <th>Tila</th>
+                <th>Muokattu</th>
+                <th>Muokkaaja</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in muutokset)
+            {
+                <tr>
+                    <td>@a.IdmuutoshistoriaKohde</td>
+                    <td>@a.Nimi</td>
+                    <td>@a.Kuvaus</td>
+                    <td>@a.Sijainti</td>
+                    <td>@a.Tunnus</td>
+                    <td>
+                        @if (a.IdkohteenTila == 1)
+                        {
+                            <span style="color: green">@tilat.Find(x => x.IdkohteenTila == a.IdkohteenTila).Kuvaus</span>
+                        }
+                        else if (a.IdkohteenTila == 2)
+                        {
+                            <span style="color: red">@tilat.Find(x => x.IdkohteenTila == a.IdkohteenTila).Kuvaus</span>
+                        }
+                        else
+                        {
+                            <span style="color: black">@tilat.Find(x => x.IdkohteenTila == a.IdkohteenTila).Kuvaus</span>
+                        }
+
+                    </td>
+                    <td>@a.Muokattu</td>
+                    <td>@kayttajat.Find(x => x.Idkayttaja == a.KayttajaIdkayttaja).Nimi</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+  
+    <div>
+        
+        <button type="button" @onclick="Sulje" class="btn btn-secondary">Peruuta</button>
+    </div>
+}
+
+
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+    private MuutoshistoriaKohdeDTO? muutos = new MuutoshistoriaKohdeDTO();
+    private MuutoshistoriaKohdeDTO[]? muutokset;
+    private List<TilaDTO>? tilat;
+    private List<KayttajaDTO>? kayttajat;
+
+ 
+
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        muutokset = await Http.GetFromJsonAsync<MuutoshistoriaKohdeDTO[]>($"/history/{Id}/all");
+        tilat = await Http.GetFromJsonAsync<List<TilaDTO>>("/tila/all");
+        kayttajat = await Http.GetFromJsonAsync<List<KayttajaDTO>>("/kayttaja/kaikki");
+        
+
+
+
+    }
+
+
+
+
+    private async Task Sulje()
+    {
+        await Modal.CloseAsync();
+
+    }
+
+}
+

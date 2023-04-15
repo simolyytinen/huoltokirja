@@ -1,0 +1,107 @@
+﻿@inject ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<div class="top-row ps-3 navbar navbar-dark">
+
+	<div class="container-fluid">
+		<a class="navbar-brand"><img class="appIcon" src="https://cdn-icons-png.flaticon.com/512/9156/9156698.png" /> Huoltokirja</a>
+
+		<button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+			<span class="navbar-toggler-icon"></span>
+		</button>
+	</div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+	<nav class="flex-column">
+		@*<div class="nav-item px-3">
+			<NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+				<span class="oi oi-home" aria-hidden="true"></span> Etusivu
+			</NavLink>
+		</div>*@
+
+		<AuthorizeView>
+		<div class="nav-item px-3">
+			<NavLink class="nav-link" href="huoltokohteet">
+				<span class="oi oi-list-rich" aria-hidden="true"></span> Huoltokohteet
+			</NavLink>
+		</div>
+		<div class="nav-item px-3">
+			<NavLink class="nav-link" href="tarkastus">
+				<span class="oi oi-list-rich" aria-hidden="true"></span> Tarkastus
+			</NavLink>
+		</div>
+		<div class="nav-item px-3">
+			<NavLink class="nav-link" href="auditointi">
+				<span class="oi oi-magnifying-glass" aria-hidden="true"></span> Auditointi
+			</NavLink>
+		</div>
+		</AuthorizeView>
+
+		<AuthorizeView Roles="admin">
+			<div class="nav-item px-3">
+				<NavLink class="nav-link" href="kayttajat">
+					<span class="oi oi-people" aria-hidden="true"></span> Käyttäjät
+				</NavLink>
+			</div>
+		</AuthorizeView>
+
+		<AuthorizeView>
+			 <NotAuthorized>
+				<div class="nav-item px-3">
+					
+						<button class="btn btn-outline-primary" @onclick="Login">
+							<span class="oi oi-account-login" aria-hidden="true"></span> Kirjaudu sisään
+						</button>
+					
+				</div>
+            </NotAuthorized>
+
+			<Authorized>
+				<div class="nav-item px-3">
+					<NavLink class="nav-link" href="kayttajaProfiili">
+						<span class="oi oi-person" aria-hidden="true"></span> Oma profiili
+					</NavLink>
+				</div>
+
+
+			<div class="nav-item px-3">
+					
+						<button @onclick="Logout" class="btn btn-outline-danger">
+							<span class="oi oi-account-logout" aria-hidden="true"></span> Kirjaudu ulos
+						</button>
+						
+			</div>
+			</Authorized>
+		</AuthorizeView>
+
+		</nav>
+</div>
+
+@code {
+	private bool collapseNavMenu = true;
+
+	private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+	private void ToggleNavMenu()
+	{
+		collapseNavMenu = !collapseNavMenu;
+	}
+
+	private async Task Logout()
+	{
+		await LocalStorage.RemoveItemAsync("authToken");
+		await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		NavigationManager.NavigateTo("/");
+	}
+
+	private void Login()
+	{
+		NavigationManager.NavigateTo("/");
+	}
+
+
+}
+

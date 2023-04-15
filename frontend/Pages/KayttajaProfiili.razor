@@ -1,0 +1,99 @@
+﻿@page "/kayttajaprofiili"
+@using SharedLib
+@inject NavigationManager NavigationManager
+@inject ILogger<Index> Logger
+@inject HttpClient Http
+@attribute [Authorize]
+
+<PageTitle>Profiili</PageTitle>
+
+<AuthorizeView>
+	<h3 class="mb-4">Terve <i>@context.User.Identity.Name</i>.</h3>
+</AuthorizeView>
+
+@if (data != null)
+{
+
+	<div class="card">
+		<img src="https://img.freepik.com/free-vector/faceless-portrait-clown-isolated-vector-illustration_7504-678.jpg?w=740&t=st=1669293252~exp=1669293852~hmac=45e1d5b6163ece77b3f6991d71179469dc30fc80f6c3471134c3bd3093a9fc62"
+		 class="img">
+		<div class="container">
+			<span>Id: @data.Idkayttaja</span><br>
+			<span>Käyttäjätunnus: @data.Kayttajatunnus</span><br>
+			<span>Viimeisin kirjautuminen: @data.ViimeisinKirjautuminen.ToString("dd.MM.yyyy HH:mm")
+			</span><br>
+			<span>Käyttäjä luotu: @data.Luotu.ToString("dd.MM.yyyy HH:mm")
+			</span><br>
+			<span>Rooli: @data.Rooli</span><br>
+			<span>Aktiivinen:
+
+				@if(data.Poistettu == 0)
+				{
+					<span style="color:green">kyllä</span>
+				}
+				else
+				{
+					//tämä ei toteudu nykyisellään koskaan-> poistettu käyttäjä ei pääse järjestelmään
+					<span style="color:red">ei</span>
+				}
+			</span>
+		</div>
+	</div>
+}
+else
+{
+	<h4 class="mb-3">Ei tietoja saatavilla</h4>
+}
+<hr class="mb-3"/> <br/>
+<h4 class="mb-3">Vaihda salasana</h4>
+
+<EditForm Model="uusi" OnValidSubmit="ChangePassword">
+	<DataAnnotationsValidator />
+
+	<div class="mb-3">
+		<label for="uusiSalasana">Uusi salasana</label>
+		<InputText id="salasana" @bind-Value="uusi.UusiSalasana" class="form-control" type="password" />
+		<ValidationMessage For="@(()=> uusi.UusiSalasana)" />
+	</div>
+
+	<div class="mb-3">
+		<label for="vahvistaSalasana">Vahvista salasana</label>
+		<InputText id="vahvistaSalasana" @bind-Value="uusi.VahvistaSalasana" class="form-control" type="password" />
+		<ValidationMessage For="@(()=> uusi.VahvistaSalasana)" />
+	</div>
+
+	<button type="submit" class="btn btn-primary">Tallenna</button>
+	<br /> <br />
+	<div class="mb-3"><span style="color: blue">@message</span></div>
+
+</EditForm>
+
+
+@code {
+	VaihdaSalasana uusi = new();
+	string message = string.Empty;
+	private KayttajaDTO? data;
+
+	protected override async Task OnInitializedAsync()
+	{
+		data = await Http.GetFromJsonAsync<KayttajaDTO>("kayttaja/omatTiedot");
+	}
+
+	private async Task ChangePassword()
+	{
+		var result = await Http.PostAsJsonAsync("/auth/vaihdaSalasana", uusi);
+
+		if (result.IsSuccessStatusCode)
+		{
+			message = "Salasanan vaihto onnistui.";
+			uusi = new VaihdaSalasana();
+		}
+		else
+		{
+			message = "Jotain meni vikaan.";
+		}
+
+	}
+
+
+}

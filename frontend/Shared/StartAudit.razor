@@ -1,0 +1,148 @@
+﻿@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+
+
+@*Ensin valitaan auditointipohja*@
+@*Pohjan valinta hakee alempaan formiin tiedot ja soveltuvat kohteet auditoinnille*@
+
+@if (pohjat != null)
+{
+		<EditForm Model="auditointipohja">
+		<label for="pohja">Valitse auditointipohja</label>
+		<InputSelect id="pohja" @bind-Value="auditointipohja.Idauditointipohja" class="form-select mb-3">
+			@foreach (var item in pohjat)
+			{
+				<option value="@item.Idauditointipohja">@item.Selite, @item.KohderyhmaNimi</option>
+			}
+		</InputSelect>
+		
+		@if (auditointipohja.Idauditointipohja != 0)
+		{
+			<button type="button" class="btn btn-primary mb-3" @onclick="PohjaValittu">Hyväksy valinta</button>
+
+		}
+		
+	</EditForm>
+}
+
+
+@if (kohteet != null && jatketaan == true)
+{
+	<EditForm Model="auditointi">
+
+		<div class="mb-3">
+			<label for="idkohde">Kohde</label>
+
+			<InputSelect id="idkohde" @bind-Value="auditointi.Idkohde" class="form-select">
+
+				@foreach (var item in kohteet)
+				{
+					<option value="@item.Idkohde">@item.Nimi, @item.Sijainti</option>
+				}
+
+			</InputSelect>
+		</div>
+
+
+		<div class="mb-3">
+			<label for="selite">Auditoinnin selite</label>
+			<InputText id="selite" @bind-Value="auditointi.Selite" class="form-control" />
+		</div>
+
+		<div class="mb-3">
+			@if (auditointi.Idkohde != 0 && auditointi.Selite != "")
+			{
+				<button @onclick="Start" class="btn btn-primary">Aloita auditointi</button>
+			}
+
+			<button class="btn btn-danger" @onclick="Close">Peruuta</button>
+		</div>
+	
+
+	</EditForm>
+}
+
+
+
+
+@code {
+	[CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+	private AuditointiDTO auditointi = new();
+	private HuoltokohdeDTO[]? kohteet;
+	private AuditointipohjaDTO[]? pohjat;
+	private AuditointipohjaDTO? auditointipohja = new();
+	private string sort = "asc";
+	private bool jatketaan = false;
+	private string? message = "";
+	private int? Id;
+
+	protected override async Task OnInitializedAsync()
+	{
+		pohjat = await Http.GetFromJsonAsync<AuditointipohjaDTO[]>($"/auditointipohja/all/{sort}");
+	}
+
+	async Task Close()
+	{
+		await Modal.CloseAsync();
+
+	}
+
+
+
+	async Task PohjaValittu()
+	{
+		Id = auditointipohja.Idauditointipohja;
+
+		//haetaan valitun pohjan tiedot
+		auditointipohja = await Http.GetFromJsonAsync<AuditointipohjaDTO>($"/auditointipohja/{Id}");
+
+		if(auditointipohja != null)
+		{
+			Console.WriteLine($"Pohja {auditointipohja.Idauditointipohja} valittu. Kohderyhmä: {auditointipohja.Idkohderyhma}");
+			if(auditointipohja.Idkohderyhma != null)
+			{
+				//haetaan kyseisen auditointipohjan kohderyhman kohteet
+				kohteet = await Http.GetFromJsonAsync<HuoltokohdeDTO[]>($"/kohde/ryhma/{auditointipohja.Idkohderyhma}");
+			}
+			else
+			{
+				kohteet = await Http.GetFromJsonAsync<HuoltokohdeDTO[]>("/kohde/all");
+			}
+
+			auditointi.Selite = auditointipohja.Selite;
+
+			//viedään auditointipohjan vaatimukset auditoinnille
+			if (auditointipohja.Vaatimuspohjat != null)
+			{
+			auditointi.Vaatimukset = auditointipohja.Vaatimuspohjat.Select(v => new VaatimusDTO
+				{
+					Kuvaus = v.Kuvaus,
+					Pakollisuus = v.Pakollisuus
+				}).ToList();
+			}
+
+			jatketaan = true;
+		}
+		else
+		{
+			message = "Jotain meni vikaan..";
+		}
+	}
+
+	async Task Start()
+	{
+		Console.WriteLine($"Aloitetaan auditointi, pohjaID {Id}. KohdeId: {auditointi.Idkohde}");
+
+		var parameters = new ModalParameters()
+		.Add(nameof(AuditointiChecklist.Auditointi), auditointi);
+
+		var checkListModal = ModalService.Show<AuditointiChecklist>("Kohteen vaatimukset", parameters);
+		var result = await checkListModal.Result;
+		
+		//await OnInitializedAsync();
+		await Close();
+	}
+
+}

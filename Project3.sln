@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32825.248
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "backend", "backend\backend.csproj", "{65040FD7-73A5-47AE-B1F5-8B2068FFC8B2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "frontend", "frontend\frontend.csproj", "{D9F78813-7640-493C-B2DA-F70571BC482D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharedLib", "SharedLib\SharedLib.csproj", "{77C23133-E3F9-4C09-80C0-377D75632C04}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{65040FD7-73A5-47AE-B1F5-8B2068FFC8B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65040FD7-73A5-47AE-B1F5-8B2068FFC8B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65040FD7-73A5-47AE-B1F5-8B2068FFC8B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65040FD7-73A5-47AE-B1F5-8B2068FFC8B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9F78813-7640-493C-B2DA-F70571BC482D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9F78813-7640-493C-B2DA-F70571BC482D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9F78813-7640-493C-B2DA-F70571BC482D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9F78813-7640-493C-B2DA-F70571BC482D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77C23133-E3F9-4C09-80C0-377D75632C04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77C23133-E3F9-4C09-80C0-377D75632C04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77C23133-E3F9-4C09-80C0-377D75632C04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77C23133-E3F9-4C09-80C0-377D75632C04}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A304A3E0-98A2-434D-9204-AFB6A0AF3DB1}
+	EndGlobalSection
+EndGlobal

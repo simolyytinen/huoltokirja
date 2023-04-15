@@ -1,0 +1,163 @@
+﻿@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+
+<EditForm Model="a" OnValidSubmit="Save">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label for="selite">Selite</label>
+        <InputText id="selite" @bind-Value="a.Selite" class="form-control" />
+        <ValidationMessage For="()=>a.Selite" />
+    </div>
+
+    <div class="mb-3">
+        <label for="idkohderyhma">Kohderyhmä</label>
+        <InputSelect id="idkohderyhma" @bind-Value="a.Idkohderyhma" class="form-control">
+            <option value="0"></option>
+            @if (kohderyhmat != null)
+            {
+                @foreach (var item in kohderyhmat)
+                {
+                    <option value="@item.Idkohderyhma">@item.Nimi</option>
+                }
+            }
+        </InputSelect>
+        <ValidationMessage For="()=>a.Idkohderyhma" />
+    </div>
+
+    @if (a.Vaatimuspohjat is not null)
+    {
+        <div class="mb-3">
+            <table class="table">
+                <tr>
+                    <th>Vaatimus</th>
+                    <th>Pakollisuus</th>
+                    <th></th>
+                </tr>
+                @foreach (var vaatimus in a.Vaatimuspohjat)
+                {
+                    <tr>
+                        <td>@vaatimus.Kuvaus</td>
+                        <td>@vaatimus.Pakollisuus</td>
+                        <td><button class="btn" @onclick="@(()=> PoistaVaatimus(vaatimus))"><span class="oi oi-trash"></span></button></td>
+                    </tr>
+                }
+            </table>
+        </div>
+    }
+
+    <button type="submit" class="btn btn-primary" disabled="@lisaaVaatimus">Tallenna</button>
+    <button type="reset" class="btn btn-secondary" @onclick="Close" disabled="@lisaaVaatimus">Sulje</button>
+</EditForm>
+
+
+
+<div class="mb-3">
+    <button style="margin-top:1em" class="btn btn-secondary" @onclick="Lisaa" disabled="@lisaaVaatimus">Lisää vaatimus</button>
+</div>
+
+@if (lisaaVaatimus)
+{
+    <EditForm Model="v" OnValidSubmit="SaveVaatimus">
+        <DataAnnotationsValidator />
+        <div class="mb-3">
+            <label for="kuvaus">Kuvaus</label>
+            <InputText id="kuvaus" @bind-Value="v.Kuvaus" class="form-control" />
+            <ValidationMessage For="()=>v.Kuvaus" />
+        </div>
+
+        <div class="mb-3">
+            <label for="selite">Pakollisuus</label>
+            <InputSelect id="selite" @bind-Value="v.Pakollisuus" class="form-control">
+                <option value="pakollinen">pakollinen</option>
+                <option value="ei pakollinen">ei pakollinen</option>
+            </InputSelect>
+            <ValidationMessage For="()=>v.Pakollisuus" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Tallenna</button>
+        <button type="reset" class="btn btn-secondary" @onclick="Cancel">Peruuta</button>
+    </EditForm>
+}
+
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+    AuditointipohjaDTO a = new AuditointipohjaDTO();
+    AuditointipohjaDTO kopio = new();
+    KohderyhmaDTO[]? kohderyhmat;
+
+    VaatimuspohjaDTO v = new VaatimuspohjaDTO();
+
+    public bool lisaaVaatimus = false;
+
+    [Parameter]
+    public int? Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine($"Id = {Id}");
+        kohderyhmat = await Http.GetFromJsonAsync<KohderyhmaDTO[]>("/kohderyhma/all");
+
+
+        if (Id != null)
+        {
+            kopio = await Http.GetFromJsonAsync<AuditointipohjaDTO>($"/auditointipohja/{Id}");
+
+            a.Selite = kopio.Selite;
+            a.Idkohderyhma = kopio.Idkohderyhma;
+            a.Vaatimuspohjat = kopio.Vaatimuspohjat;
+
+            //Console.WriteLine($"kopio id = {kopio.Selite}, ryhmä: {kopio.Idkohderyhma}");
+        }
+
+    }
+
+    async Task Close()
+    {
+        a = new();
+        await Modal.CloseAsync();
+        
+    }
+
+    void Cancel()
+    {
+        lisaaVaatimus = false;
+        v = new();
+    }
+
+    void Lisaa()
+    {
+        lisaaVaatimus = true;
+    }
+
+    async Task Save()
+    {
+        var result = await Http.PostAsJsonAsync<AuditointipohjaDTO>("/auditointipohja/add", a);
+        await Modal.CloseAsync();
+
+    }
+
+    void SaveVaatimus()
+    {
+        if (a.Vaatimuspohjat is null) a.Vaatimuspohjat = new List<VaatimuspohjaDTO>();
+
+        a.Vaatimuspohjat.Add(v);
+
+        v = new VaatimuspohjaDTO();
+        lisaaVaatimus = false;
+
+
+    }
+
+    void PoistaVaatimus(VaatimuspohjaDTO v)
+    {
+        if (a.Vaatimuspohjat is not null)
+        {
+            a.Vaatimuspohjat.Remove(v);
+        }
+    }
+
+}

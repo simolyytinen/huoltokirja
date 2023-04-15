@@ -1,0 +1,167 @@
+﻿@using SharedLib
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+@if (kohde != null && tilat != null)
+{
+    // tänne lisättävä muokkaus+tallenna nappi ja muokkauksen tallennus muutoshistoriaan!
+    // poistolle ei omaa nappia! tilaa voi muuttaa -> poistettu/ei käytössä
+    <EditForm Model="kohde" >
+
+        <div class="mb-3">
+            <label for="id">Kohteen Id</label>
+            <InputNumber id="id" @bind-Value="kohde.Idkohde" class="form-control" Disabled />
+        </div>
+
+        <div class="mb-3">
+            <label for="nimi">Nimi</label>
+            <InputText id="nimi" @bind-Value="kohde.Nimi" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label for="kuvaus">Kuvaus</label>
+            <InputText id="kuvaus" @bind-Value="kohde.Kuvaus" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label for="sijainti">Sijainti</label>
+            <InputSelect id="sijainti" @bind-Value="kohde.Sijainti" class="form-control" >
+            <option>Varasto</option>
+            <option>Sorvaamo</option>
+            <option>Halli 1</option>
+            <option>Halli 2</option>
+            <option>Paja</option>
+            <option>Huoltamo</option>
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label for="tyyppi">Tyyppi</label>
+            <InputSelect id="tyyppi" @bind-Value="kohde.Tyyppi" class="form-control" Disabled >
+                <option>sorvi</option>
+                <option>pesuri</option>
+                <option>imuri</option>
+                <option>työstäjä</option>
+                <option>työkalu</option>
+                <option>muu laite</option>
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label for="malli">Malli</label>
+            <InputText id="malli" @bind-Value="kohde.Malli" class="form-control" Disabled />
+        </div>
+        <div class="mb-3">
+            <label for="´tunnus">Tunnus</label>
+            <InputText id="tunnus" @bind-Value="kohde.Tunnus" class="form-control" />
+        </div>
+        <div class="mb-3">
+            <label for="tila">Tila</label>
+             <InputSelect id="tila" @bind-Value="kohde.IdkohteenTila" class="form-control">
+                @foreach (var item in tilat)
+                {
+                    <option value="@item.IdkohteenTila">@item.Kuvaus</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label for="kohderyhma">Kohderyhmä</label>
+            <InputText id="kohderyhma" @bind-Value="kohderyhmat.Find(x => x.Idkohderyhma == kohde.Idkohderyhma).Nimi" class="form-control" Disabled />
+        </div>
+        <div class="mb-3">
+            <label for="luotu">Luotu</label>
+            <InputDate id="luotu" @bind-Value="kohde.Luotu" class="form-control" Disabled />
+        </div>
+        <div class="mb-3">
+            <label for="luoja">Luoja</label>
+            <InputText id="luoja" @bind-Value="kayttajat.Find(x => x.Idkayttaja == kohde.Idkayttaja).Nimi" class="form-control" Disabled />
+        </div>
+
+        <button type="submit" @onclick="Tallenna" class="btn btn-primary">Tallenna</button>
+        <button type="button" @onclick="@Poista" class="btn btn-danger">Poista</button>
+        <button type="button" @onclick="Sulje" class="btn btn-secondary">Peruuta</button>
+    </EditForm>
+}
+else
+{
+    <p>ladataan..</p>
+}
+
+
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+    private HuoltokohdeDTO? kohde = new HuoltokohdeDTO();
+    private HuoltokohdeDTO[]? kohteet;
+    private MuutoshistoriaKohdeDTO? muutos = new MuutoshistoriaKohdeDTO();
+    private TilaDTO[]? tilat;
+    private List<KayttajaDTO>? kayttajat;
+    private KayttajaDTO? kayttaja;
+    private List<KohderyhmaDTO>? kohderyhmat;
+
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        kohteet = await Http.GetFromJsonAsync<HuoltokohdeDTO[]>("/kohde/all");
+        kohde = kohteet.FirstOrDefault(i => i.Idkohde == Id);
+        tilat = await Http.GetFromJsonAsync<TilaDTO[]>("/tila/all1or2");
+        kayttajat = await Http.GetFromJsonAsync<List<KayttajaDTO>>("/kayttaja/kaikki");
+        kayttaja = kayttajat.FirstOrDefault(i => i.Idkayttaja == Id);
+        kohderyhmat = await Http.GetFromJsonAsync<List<KohderyhmaDTO>>("/kohderyhma/all");
+
+
+    }
+
+
+    private async Task Tallenna()
+    {
+        await Http.PutAsJsonAsync($"/kohde/{Id}", kohde);
+
+        muutos.Nimi = kohde.Nimi;
+        muutos.Kuvaus = kohde.Kuvaus;
+        muutos.Sijainti = kohde.Sijainti;
+        muutos.Tunnus = kohde.Tunnus;
+        muutos.Muokattu = DateTime.Now;
+        muutos.KohdeIdkohde = kohde.Idkohde;
+        muutos.IdkohteenTila = kohde.IdkohteenTila;
+
+
+        await Http.PostAsJsonAsync<MuutoshistoriaKohdeDTO>("/history", muutos);
+        await Modal.CloseAsync();
+
+
+    }
+
+    private async Task Poista()
+    {
+        kohde.IdkohteenTila = 3;
+
+        await Http.PutAsJsonAsync($"/kohde/{Id}", kohde);
+
+        
+        muutos.Nimi = kohde.Nimi;
+        muutos.Kuvaus = kohde.Kuvaus;
+        muutos.Sijainti = kohde.Sijainti;
+        muutos.Tunnus = kohde.Tunnus;
+        muutos.Muokattu = DateTime.Now;
+        muutos.KohdeIdkohde = kohde.Idkohde;
+        muutos.IdkohteenTila = 3;
+
+
+        await Http.PostAsJsonAsync<MuutoshistoriaKohdeDTO>("/history", muutos);
+        await Modal.CloseAsync();
+
+
+    }
+
+
+    private async Task Sulje()
+    {
+        await Modal.CloseAsync();
+        
+    }
+
+}

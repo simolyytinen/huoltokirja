@@ -1,0 +1,63 @@
+﻿@page "/login"
+@using SharedLib
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+@inject ILogger<Index> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h3>Kirjaudu sisään</h3>
+
+<EditForm Model="kayttaja" OnValidSubmit="HandleLogin">
+	
+	<div class="mb-3">
+		<label for="kayttajatunnus">Käyttäjätunnus</label>
+		<InputText id="kayttajatunnus" @bind-Value="kayttaja.Kayttajatunnus" class="form-control" />
+	</div>
+	<div class="mb-3">
+		<label for="salasana">Salasana</label>
+		<InputText id="salasana" @bind-Value="kayttaja.Salasana" class="form-control" type="password" />
+	</div>
+	<button type="submit" class="btn btn-primary">Kirjaudu</button>
+</EditForm>
+<div class="text-danger">
+	<span>@errorMsg</span>
+</div>
+
+@code {
+	LoginDTO kayttaja = new();
+	private string errorMsg = string.Empty;
+
+	async Task HandleLogin()
+	{
+		var result = await Http.PostAsJsonAsync("/auth/login", kayttaja);
+
+
+		if (result.IsSuccessStatusCode)
+		{
+			Console.WriteLine("statuscode = "+result.StatusCode);
+			var token = await result.Content.ReadAsStringAsync();
+			errorMsg = string.Empty;
+			await LocalStorage.SetItemAsync("authToken", token);
+			await AuthenticationStateProvider.GetAuthenticationStateAsync();
+			//Logger.LogInformation($"Käyttäjä {kayttaja.Kayttajatunnus} kirjautui onnistuneesti. " + "Token: " + token);
+			NavigationManager.NavigateTo("/kayttajaprofiili");
+		}
+		else if (result.StatusCode.ToString().Equals("NotFound"))
+		{
+			errorMsg = "Käyttäjätunnusta ei löytynyt";
+			Console.WriteLine("statuscode = " + result.StatusCode);
+		}
+		else if(result.StatusCode.ToString().Equals("BadRequest"))
+		{
+			errorMsg = "Salasana väärin";
+			Console.WriteLine("statuscode = " + result.StatusCode);
+		}
+		else
+		{
+			NavigationManager.NavigateTo("/poistettu");
+			Console.WriteLine("statuscode = " + result.StatusCode);
+		}
+
+	}
+		}

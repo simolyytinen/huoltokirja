@@ -1,0 +1,144 @@
+﻿@page "/auditointipohjat"
+@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<PageTitle>Auditointipohjat</PageTitle>
+
+<div class="mb-5">
+	<button class="btn btn-outline-primary" @onclick="Previous">Auditointisivulle</button>
+	<button class="btn btn-success" @onclick="Add">Lisää uusi auditointipohja</button>
+</div>
+
+<h3 class="mb-4">Auditointipohjat</h3>
+
+
+@if (auditointipohjat != null)
+{
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>Selite</th>
+                <th style="cursor:pointer" @onclick="@(async ()=>{if (sort == "desc") await SortBy("asc");
+                                                           else await SortBy("desc"); })">
+                    Luotu
+                    @if (sort.Equals("asc"))
+                    {<i class="fa-solid fa-sort-up"></i>}
+                    else if (sort.Equals("desc"))
+                    {<i class="fa-solid fa-sort-down"></i>}
+                    else
+                    {<i class="fa-solid fa-sort"></i>}
+
+                </th>
+                <th style="cursor:pointer" @onclick="@(async ()=>{if (sort == "nimidesc") await SortBy("nimi");
+                                                           else await SortBy("nimidesc"); })">
+                    Tekijä
+                    @if (sort.Equals("nimi"))
+                    {<i class="fa-solid fa-sort-up"></i>}
+                    else if (sort.Equals("nimidesc"))
+                    {<i class="fa-solid fa-sort-down"></i>}
+                    else
+                    {<i class="fa-solid fa-sort"></i>}
+                </th>
+				<th>Kohderyhmä</th>
+				<th>Muokkaa / Kopioi</th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var item in auditointipohjat)
+			{
+				<tr>
+					<td>@item.Idauditointipohja</td>
+					<td>@item.Selite</td>
+					<td>@item.Luontiaika.ToString("dd.MM.yyyy HH:mm")</td>
+					<td>@item.KayttajaNimi</td>
+					<td>@item.KohderyhmaNimi</td>
+                    <td>
+                        <button style="font-size: 75%" class="btn btn-primary" @onclick="@(()=> Auditointipohja(item.Idauditointipohja))">
+                            <i class="oi oi-pencil"></i>
+                        </button>
+                        <button style="font-size: 75%" class="btn btn-success" @onclick="@(()=> Copy(item.Idauditointipohja))">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </td>
+
+				</tr>
+			}
+
+		</tbody>
+	</table>
+}
+else
+{
+<div class="text-center">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+}
+
+<div class="mb-2" style="color: red">@message</div>
+
+
+
+@code {
+    AuditointipohjaDTO[]? auditointipohjat;
+    private int? pohjaId;
+    private string? message;
+    private string sort = "nothing";
+
+    protected override async Task OnInitializedAsync()
+    {
+        auditointipohjat = await Http.GetFromJsonAsync<AuditointipohjaDTO[]>($"auditointipohja/all/{sort}");
+    }
+
+
+
+    async Task Add()
+    {
+        var uusiModal = ModalService.Show<AddAuditointipohja>("Lisää auditointipohja");
+        var result = await uusiModal.Result;
+
+        await OnInitializedAsync();
+    }
+
+    async Task Copy(int? Id)
+    {
+
+        var parameters = new ModalParameters()
+        .Add(nameof(AddAuditointipohja.Id), Id);
+
+        var uusiModal = ModalService.Show<AddAuditointipohja>("Lisää auditointipohja", parameters);
+        var result = await uusiModal.Result;
+
+        await OnInitializedAsync();
+
+    }
+
+    async Task Auditointipohja(int? Id)
+    {
+        var parameters = new ModalParameters()
+            .Add(nameof(AuditointipohjaDetail.Id), Id);
+
+        var detailModal = ModalService.Show<AuditointipohjaDetail>("Auditointipohjan tiedot", parameters);
+        var result = await detailModal.Result;
+
+        await OnInitializedAsync();
+    }
+
+    private async Task SortBy(string sort)
+    {
+        this.sort = sort;
+        auditointipohjat = await Http.GetFromJsonAsync<AuditointipohjaDTO[]>($"/auditointipohja/all/{sort}");
+    }
+
+    async Task Previous()
+    {
+        NavigationManager.NavigateTo("/auditointi");
+    }
+
+
+}

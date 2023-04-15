@@ -1,0 +1,131 @@
+﻿@using SharedLib
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+@if (ryhmat != null && tilat != null)
+{
+    <EditForm Model="kohde" OnValidSubmit="Tallenna">
+        <DataAnnotationsValidator />
+        <div class="mb-3">
+            <label for="nimi">Huoltokohteen nimi</label>
+            <InputText id="nimi" @bind-Value="kohde.Nimi" class="form-control" />
+            <ValidationMessage For="()=>kohde.Nimi" />
+        </div>
+
+        <div class="mb-3">
+            <label for="kuvaus">Kuvaus</label>
+            <InputText id="kuvaus" @bind-Value="kohde.Kuvaus" class="form-control" />
+            <ValidationMessage For="()=>kohde.Kuvaus" />
+        </div>
+        <div class="mb-3">
+            <label for="sijainti">Sijainti</label>
+            <InputSelect id="sijainti" @bind-Value="kohde.Sijainti" class="form-control" >
+                <option default>Valitse</option>
+            <option>Varasto</option>
+            <option>Sorvaamo</option>
+            <option>Halli 1</option>
+            <option>Halli 2</option>
+            <option>Paja</option>
+            <option>Huoltamo</option>
+            </InputSelect>
+            <ValidationMessage For="()=>kohde.Sijainti" />
+               
+        </div>
+        <div class="mb-3">
+            <label for="tyyppi">Tyyppi</label>
+            <InputSelect id="tyyppi" @bind-Value="kohde.Tyyppi" class="form-control" >
+                <option default>Valitse</option>
+                <option>sorvi</option>
+                <option>pesuri</option>
+                <option>imuri</option>
+                <option>työstäjä</option>
+                <option>työkalu</option>
+                <option>muu laite</option>
+            </InputSelect>
+            <ValidationMessage For="()=>kohde.Tyyppi" />
+            
+        </div>
+        <div class="mb-3">
+            <label for="malli">Malli</label>
+            <InputText id="malli" @bind-Value="kohde.Malli" class="form-control" />
+            <ValidationMessage For="()=>kohde.Malli" />
+        </div>
+        <div class="mb-3">
+            <label for="tunnus">Tunnus</label>
+            <InputText id="tunnus" @bind-Value="kohde.Tunnus" class="form-control" />
+            <ValidationMessage For="()=>kohde.Tunnus" />
+                </div>
+        <div class="mb-3">
+            <label for="tila">Kohteen tila</label>
+            <InputSelect id="tila" @bind-Value="kohde.IdkohteenTila" class="form-control">
+                @foreach (var item in tilat)
+                {
+                    <option value="@item.IdkohteenTila">@item.Kuvaus</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="()=>kohde.IdkohteenTila" />
+        </div>
+        
+        <div class="mb-3">
+            <label for="kohderyhma">Kohderyhmä</label>
+            <InputSelect id="kohderyhma" @bind-Value="kohde.Idkohderyhma" class="form-control">
+                @foreach (var item in ryhmat)
+                {
+                    <option value="@item.Idkohderyhma">@item.Nimi</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="()=>kohde.Idkohderyhma" />
+        </div>
+
+
+        <button type="submit" class="btn btn-primary">Tallenna</button>
+        <button type="reset" @onclick="Tyhjenna" class="btn btn-info">Tyhjennä</button>
+        <button type="button" @onclick="Sulje" class="btn btn-secondary">Peruuta</button>
+    </EditForm>
+}
+
+
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+    private HuoltokohdeDTO kohde = new HuoltokohdeDTO();
+    private KohderyhmaDTO[]? ryhmat;
+    private TilaDTO[]? tilat;
+
+   
+
+    protected override async Task OnInitializedAsync()
+    {
+        ryhmat = await Http.GetFromJsonAsync<KohderyhmaDTO[]>("/kohderyhma/all");
+        tilat = await Http.GetFromJsonAsync<TilaDTO[]>("/tila/all1or2");
+    }
+
+
+    private async Task Tallenna()
+    {
+        kohde.Luotu = DateTime.Now;
+        
+
+
+        await Http.PostAsJsonAsync<HuoltokohdeDTO>("/kohde", kohde);
+
+        await Modal.CloseAsync();
+
+        NavigationManager.NavigateTo("/huoltokohteet");
+    }
+
+    private void Tyhjenna()
+    {
+        kohde = new HuoltokohdeDTO();
+    }
+
+    private async Task Sulje()
+    {
+        await Modal.CloseAsync();
+
+    }
+
+}
+

@@ -1,0 +1,99 @@
+﻿@using SharedLib
+@inject HttpClient Http
+
+@if (valittavatKohteet != null)
+{
+
+    <div class="mb-3">
+        @foreach (var item in valittavatKohteet)
+        {
+            <InputCheckbox @bind-Value="@item.IsSelected" style="margin-right: 0.5em" />
+            @item.Name
+            <br />
+        }
+    </div>
+
+    <button type="submit" @onclick="Tallenna" class="btn btn-primary">Tallenna</button>
+    <button type="reset" @onclick="Tyhjenna" class="btn btn-secondary">Tyhjenna</button>
+
+}
+else
+{
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+
+
+
+@code {
+            [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+
+        private ValittavaKohde[]? lopputulokset = { new ValittavaKohde { Id = 0, Name = "hylätty" }, new ValittavaKohde { Id = 1, Name = "hyväksytty" } };
+        class ValittavaKohde
+        {
+            public string? Name;
+            public int Id;
+            public bool IsSelected;
+        }
+        private List<ValittavaKohde> valittavatKohteet = new List<ValittavaKohde>();
+
+        [Parameter]
+        public int[]? valitutId { get; set; }
+
+
+        protected override void OnInitialized()
+        {
+
+            PopulateList();
+
+        }
+
+
+        private async Task Tallenna()
+        {
+            valitutId = valittavatKohteet.FindAll(x => x.IsSelected == true).Select(x => (int)x.Id).ToArray();
+
+            await Modal.CloseAsync(ModalResult.Ok((int[])valitutId));
+        }
+
+        private void Tyhjenna()
+        {
+            valittavatKohteet = new List<ValittavaKohde>();
+            valitutId = null;
+            PopulateList();
+        }
+
+        private void PopulateList()
+        {
+            if (lopputulokset != null)
+            {
+                foreach (var item in lopputulokset)
+                {
+                    if (valitutId != null && valitutId.Contains(item.Id))
+                    {
+                        valittavatKohteet.Add(new ValittavaKohde
+                        {
+                            Name = $"{item.Name}",
+                            Id = item.Id,
+                            IsSelected = true
+                        });
+                    }
+                    else
+                    {
+                        valittavatKohteet.Add(new ValittavaKohde
+                        {
+                            Name = $"{item.Name}",
+                            Id = item.Id,
+                            IsSelected = false
+                        });
+                    }
+
+                }
+            }
+        }
+    }
+

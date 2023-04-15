@@ -1,0 +1,78 @@
+﻿@using SharedLib
+@inject NavigationManager NavigationManager
+@inject ILogger<Index> Logger
+@inject HttpClient Http
+
+<EditForm Model="kayttaja" OnValidSubmit="AddUser">
+	<DataAnnotationsValidator />
+	<div class="mb-3">
+		<label for="nimi">Nimi</label>
+		<InputText id="nimi" @bind-Value="kayttaja.Nimi" class="form-control" />
+		<ValidationMessage For="@(()=> kayttaja.Nimi)" />
+	</div>
+
+	<div class="mb-3">
+		<label for="kayttajatunnus">Käyttäjätunnus</label>
+		<InputText id="kayttajatunnus" @bind-Value="kayttaja.Kayttajatunnus" class="form-control" />
+		<ValidationMessage For="@(()=> kayttaja.Kayttajatunnus)" />
+	</div>
+
+	<div class="mb-3">
+		<label for="salasana">Salasana</label>
+		<InputText id="salasana" @bind-Value="kayttaja.Salasana" class="form-control" type="password" />
+		<ValidationMessage For="@(()=> kayttaja.Salasana)" />
+	</div>
+
+	<div class="mb-3">
+		<label for="rooli">Rooli</label>
+		<InputSelect id="rooli" @bind-Value="kayttaja.Rooli" class="form-control">
+			<option>---</option>
+			<option value="@kayttaja.Rooli">user</option>
+			<option value="@kayttaja.Rooli">admin</option>
+		</InputSelect>
+		<ValidationMessage For="@(()=> kayttaja.Rooli)" />
+	</div>
+
+	<button type="submit" class="btn btn-primary">Lisää</button>
+	<button class="btn btn-danger" @onclick="Sulje">Sulje</button>
+	<br /> <br />
+	<div><span style="color: red">@errorMsg</span></div>
+	<div><span style="color: green">@successMsg</span></div>
+</EditForm>
+
+@code {
+	[CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+	RegisterDTO kayttaja = new();
+	string errorMsg = string.Empty;
+	string successMsg = string.Empty;
+
+	async Task AddUser()
+	{
+
+		var result = await Http.PostAsJsonAsync("/auth/register", kayttaja);
+
+		if (result.IsSuccessStatusCode)
+		{
+			Logger.LogInformation($"Lisätään uusi käyttäjä: {kayttaja.Nimi}: {kayttaja.Kayttajatunnus}: {kayttaja.Luotu}");
+			successMsg = "Uuden käyttäjän lisääminen onnistui.";
+			errorMsg = string.Empty;
+
+			kayttaja = new RegisterDTO();
+
+
+		}
+		else
+		{
+			successMsg = string.Empty;
+			errorMsg = "Käyttäjätunnus on jo käytössä";
+		}
+	}
+
+	async Task Sulje()
+	{
+		await Modal.CloseAsync();
+	}
+}
+
+
+

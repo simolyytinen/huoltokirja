@@ -1,0 +1,83 @@
+﻿@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+
+
+<EditForm Model="kayttaja" >
+	@*<DataAnnotationsValidator/>*@
+
+	<div class="mb-3">
+		<label for="id">Id</label>
+		<InputNumber id="id" @bind-Value="kayttaja.Idkayttaja" class="form-control" Disabled />
+	</div>
+
+	<div class="mb-3">
+		<label for="nimi">Nimi</label>
+		<InputText id="nimi" @bind-Value="kayttaja.Nimi" class="form-control" Disabled />
+	</div>
+
+	<div class="mb-3">
+		<label for="kayttajatunnus">Käyttäjätunnus</label>
+		<InputText id="kayttajatunnus" @bind-Value="kayttaja.Kayttajatunnus" class="form-control" Disabled />
+
+	</div>
+
+	<div class="mb-3">
+		<label for="rooli">Rooli</label>
+		<InputSelect id="rooli" @bind-Value="kayttaja.Rooli" class="form-control">
+				<option value="@("user")">user</option>
+			<option value="@("admin")">admin</option>
+		</InputSelect>
+</div>
+	<div class="mb-3">
+		<label for="poistettu">Aktiivinen</label>
+		<InputSelect id="poistettu" @bind-Value="kayttaja.Poistettu" class="form-control">
+			<option value="@("0")">aktiivinen</option>
+			<option value="@("1")">ei aktiivinen</option>
+		</InputSelect>
+	</div>
+
+		<div class="mb-3"><span style="color: red">@message</span></div>
+
+	<button class="btn btn-primary" @onclick="SaveChanges">Tallenna</button>
+	<button class="btn btn-secondary" @onclick="Close">Sulje</button>
+	
+</EditForm>
+
+@code {
+	[CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+	KayttajaDTO? kayttaja = new();
+	[Parameter]
+	public int Id { get; set; }
+	private string message = string.Empty;
+
+	protected override async Task OnInitializedAsync()
+	{
+		kayttaja = await Http.GetFromJsonAsync<KayttajaDTO>($"/kayttaja/{Id}");
+
+	}
+
+	async Task Close()
+	{
+		await Modal.CloseAsync();
+	}
+
+	async Task SaveChanges()
+	{
+		var result = await Http.PutAsJsonAsync<KayttajaDTO>("/kayttaja/muokkaa/{Id}", kayttaja);
+
+		if (result.IsSuccessStatusCode)
+		{
+			await Modal.CloseAsync();
+			//NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+
+		}
+		else
+		{
+			message = "Käyttäjän tietoja ei voi muokata. Ota yhteys ylläpitoon.";
+		}
+	}
+
+}

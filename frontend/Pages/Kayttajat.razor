@@ -1,0 +1,188 @@
+﻿@page "/kayttajat"
+@using SharedLib
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IModalService ModalService
+@attribute [Authorize(Roles = "admin")]
+@inject NavigationManager NavigationManager
+
+<PageTitle>Käyttäjät</PageTitle>
+
+<h1 class="mb-3">Käyttäjät</h1>
+
+<button style="margin: 2em 0 2em 0" class="btn btn-primary" @onclick="@AddKayttaja">Lisää käyttäjä</button>
+
+@if (kayttajat == null)
+{
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nimi
+                    @if(sortNameDesc == false)
+                    {
+                        <button class="oi oi-sort-ascending styled-btn" @onclick="SortByName" />
+                    }
+                    else
+                    {
+                        <button class="oi oi-sort-descending styled-btn" @onclick="SortByName" />
+
+                    }
+                </th>
+                <th>Käyttäjätunnus</th>
+                <th>Rooli</th>
+                <th>Luotu
+                    @if(sortByLatest == false)
+                    {
+                        <button class="oi oi-sort-ascending styled-btn" @onclick="@(e=> SortByDate("desc"))" />
+                    }
+                    else
+                    {
+                        <button class="oi oi-sort-descending styled-btn" @onclick="@(e=> SortByDate("asc"))" />
+                    }
+                </th>
+                <th>Aktiivinen
+                    @if(sortStateDesc == false)
+                    {
+                        <button class="oi oi-sort-ascending styled-btn" @onclick="@(e=> SortByState("desc"))" />
+
+                    }
+                    else
+                    {
+                        <button class="oi oi-sort-descending styled-btn" @onclick="@(e=> SortByState("asc"))" />
+
+                    }
+                </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in kayttajat)
+            {
+                <tr>
+                  @*  <td>@(
+                    item.Rooli == "admin" ? $"<span class='oi oi - x' style='color: red'></span>" : "user"
+                    )</td>*@
+                    <td>@item.Nimi</td>
+                    <td>@item.Kayttajatunnus</td>
+                    <td>@item.Rooli</td>
+                    <td>@item.Luotu.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>
+                        @if (@item.Poistettu == 1)
+                        {
+                            <span class="oi oi-x" style="color:red"></span>
+                        }
+                        else
+                        {
+                            <span class="oi oi-check" style="color: green"></span>
+                        }
+                    </td>
+                    <td>
+                        @if (@item.Rooli == "user")
+                        {
+                               <button style="font-size: 85%" class="btn btn-success" @onclick="@(e=> Muokkaa(item.Idkayttaja))">
+                            <span class ="oi oi-pencil"></span>
+                            </button>
+                        }else{
+                           <button style="font-size: 85%" class="btn btn-secondary" disabled>
+                            <span class ="oi oi-pencil"></span>
+                            </button>
+                            }
+                            </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+    private KayttajaDTO[]? kayttajat;
+    private bool sortNameDesc = false;
+    private bool sortStateDesc = false;
+    private bool sortByLatest = false;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>("kayttaja/kayttajatunnukset");
+    }
+
+    private async Task Muokkaa(int Id)
+    {
+        var parameters = new ModalParameters()
+        .Add(nameof(EditKayttaja.Id), Id);
+
+        var uusiModal = ModalService.Show<EditKayttaja>("Muokkaa", parameters);
+        var result = await uusiModal.Result;
+
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        await OnInitializedAsync();
+
+    }
+
+    private async Task SortByName()
+    {
+        if(sortNameDesc == false)
+        {
+            kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>("/kayttaja/sortByName");
+            sortNameDesc = true;
+        }
+        else
+        {
+            kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>("kayttaja/kayttajatunnukset");
+            sortNameDesc = false;
+            //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        }
+
+    }
+
+    private async Task SortByState(string sort)
+    {
+        if(sort == "desc")
+        {
+            kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>($"/kayttaja/sortByState/{sort}");
+            sortStateDesc = true;
+        }
+        else
+        {
+            kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>($"/kayttaja/sortByState/{sort}");
+            sortStateDesc = false;
+        }
+    }
+
+    private async Task SortByDate(string sort)
+    {
+        if(sort == "desc")
+        {
+            kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>($"/kayttaja/sortByDate/{sort}");
+            sortByLatest = true;
+        }
+        else
+        {
+            kayttajat = await Http.GetFromJsonAsync<KayttajaDTO[]>($"/kayttaja/sortByDate/{sort}");
+            sortByLatest = false;
+        }
+    }
+
+    private async Task AddKayttaja()
+    {
+        var uusiModal = ModalService.Show<AddKayttaja>("Lisää uusi käyttäjä");
+        var result = await uusiModal.Result;
+
+        await OnInitializedAsync();
+    }
+    
+}
+
+
+

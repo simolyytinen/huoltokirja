@@ -1,0 +1,375 @@
+﻿@page "/huoltokohteet"
+@using SharedLib
+@inject HttpClient Http
+@*@attribute [Authorize]*@
+
+<PageTitle>Huoltokohteet</PageTitle>
+
+<h1>Huoltokohteet</h1>
+
+
+
+<button style="margin: 2em 0 2em 0" class="btn btn-primary" @onclick="@ShowUusiKohde">Lisää uusi huoltokohde</button>
+    <br />
+
+@if (kohdelist == null)
+{
+    <p>ladataan....</p>
+}
+else
+{
+    // avoin haku
+    <div>
+        <input @bind-value="SearchTextNimi" @bind-value:event="oninput" placeholder="Suodata nimen mukaan" />
+        <input @bind-value="SearchTextMalli" @bind-value:event="oninput" placeholder="Suodata mallin mukaan" />
+        <input @bind-value="SearchTextTunnus" @bind-value:event="oninput" placeholder="Suodata tunnuksen mukaan" />
+    </div>
+
+    // suodatus tilan mukaan
+    <div style="margin: 1em 0 1em 0">
+        <label>Suodata kohteen tilan mukaan:</label>
+        <button class="btn btn-success" @onclick="Filter1">Käytössä</button>
+        <button class="btn btn-danger" @onclick="Filter2">Epäkunnossa</button>
+        <AuthorizeView Roles="admin">
+            <button class="btn btn-secondary" @onclick="Filter3">Poistettu</button>
+        </AuthorizeView>
+    </div>
+
+    <div style="margin: 1em 0 1em 0">
+        <label>Suodata kohteen sijainnin mukaan:</label>
+
+        @foreach (var item in valittavatSijainnit)
+        {
+            <InputCheckbox @bind-Value="@item.valittu" style="margin-left:0.5em" />
+            @item.sijainti
+
+        }
+        <button style="margin-left: 0.5em" class="btn btn-primary" @onclick="FilterSijainti"><span class="oi oi-magnifying-glass"></span></button>
+    </div>
+
+    // suodatus tyypin mukaan
+    <div style="margin: 1em 0 1em 0">
+        <label>Suodata kohteen tyypin mukaan:</label>
+        @foreach (var item in valittavatTyypit)
+        {
+            <InputCheckbox @bind-Value="@item.valittu" style="margin-left: 0.5em" />
+            @item.tyyppi
+
+        }
+        <button style="margin-left: 0.5em" class="btn btn-primary" @onclick="FilterTyyppi"><span class="oi oi-magnifying-glass"></span></button>
+    </div>
+
+
+
+    // päivitä table /kohde/getall() nappi
+    <div style="margin: 1em 0 1em 0">
+        <button class="btn btn-info" @onclick="OnInitializedAsync"><span class="oi oi-reload"></span></button>
+    </div>
+}
+
+
+
+@*Table element*@
+@if (kohdelist == null)
+{
+    <p><em>ladataan...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th><button @onclick="SortByNimi">Nimi</button></th>
+                <th>Kuvaus</th>
+                <th><button @onclick="SortBySijainti">Sijainti</button></th>
+                <th><button @onclick="SortByTyyppi">Tyyppi</button></th>
+                <th>Malli</th>
+                <th>Tunnus</th>
+                <th><button @onclick="SortByTila">Tila</button></th>
+                <th><button @onclick="SortByLuotu">Luotu</button></th>
+                <th><button @onclick="SortByLuoja">Luoja</button></th>
+                <th><button @onclick="SortByKohderyhma">Kohderyhmä</button></th>
+                <th>Muokkaa</th>
+                <th>Historia</th>
+                <th>Tarkastukset</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in filtered)
+            {
+                <tr>
+                    <td>@a.Idkohde</td>
+                    <td>@a.Nimi</td>
+                    <td>@a.Kuvaus</td>
+                    <td>@a.Sijainti</td>
+                    <td>@a.Tyyppi</td>
+                    <td>@a.Malli</td>
+                    <td>@a.Tunnus</td>
+                    <td>
+                        @if (a.IdkohteenTila == 1)
+                        {
+                            <span style="color: green">@tilat.Find(x => x.IdkohteenTila == a.IdkohteenTila).Kuvaus</span>
+                        }
+                        else if (a.IdkohteenTila == 2)
+                        {
+                            <span style="color: red">@tilat.Find(x => x.IdkohteenTila == a.IdkohteenTila).Kuvaus</span>
+                        }
+                        else
+                        {
+                            <span style="color: black">@tilat.Find(x => x.IdkohteenTila == a.IdkohteenTila).Kuvaus</span>
+                        }
+
+                    </td>
+                    <td>@a.Luotu</td>
+                    <td>@kayttajat.Find(x => x.Idkayttaja == a.Idkayttaja).Nimi</td>
+                    <td>@kohderyhmat.Find(x => x.Idkohderyhma == a.Idkohderyhma).Nimi</td>
+                    <td><button style="font-size: 85%" class="btn btn-primary" @onclick="@(e => Edit(a.Idkohde))"><span class="oi oi-pencil"></span></button></td>
+                    <td><button style="font-size: 85%" class="btn btn-secondary" @onclick="@(e => History(a.Idkohde))"><span class="oi oi-menu"></span></button></td>
+                    <td><button style="font-size: 85%" class="btn btn-info" @onclick="@(e => ShowTarkastukset(a.Idkohde))"><span class="oi oi-clipboard"></span></button></td>
+
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [CascadingParameter] public IModalService Modal { get; set; } = default!;
+
+    public string SearchTextNimi = "";
+    public string SearchTextMalli = "";
+    public string SearchTextTunnus = "";
+    public List<HuoltokohdeDTO>? kohdelist { get; set; } = new List<HuoltokohdeDTO>();
+    private List<HuoltokohdeDTO>? alkuperainen = new List<HuoltokohdeDTO>();
+
+    //private HuoltokohdeDTO[]? kohteet;
+    private List<TilaDTO>? tilat;
+    private List<KayttajaDTO>? kayttajat;
+    private List<KohderyhmaDTO>? kohderyhmat;
+    private List<TarkastusDTO>? tarkastukset;
+
+
+    [Parameter]
+    public int Id { get; set; }
+    
+   
+    private string[]? valitutSijainnit;
+    private string[]? valitutTyypit;
+
+   
+
+    class valittavaSijainti
+    {
+        public string sijainti;
+        public bool valittu;
+    }
+
+    class valittavaTyyppi
+    {
+        public string tyyppi;
+        public bool valittu;
+    }
+
+    // kova koodatut sijainnit ja tyypit
+    private List<string> Sijainnit = new List<string> { "Varasto", "Sorvaamo", "Halli 1", "Halli 2", "Paja", "Huoltamo"};
+    private List<valittavaSijainti> valittavatSijainnit = new List<valittavaSijainti>();
+    private List<string> Tyypit = new List<string> { "sorvi", "pesuri", "imuri", "työstäjä", "työkalu", "muu laite" };
+    private List<valittavaTyyppi> valittavatTyypit = new List<valittavaTyyppi>();
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/all/tila1or2");
+        alkuperainen = kohdelist;
+        tilat = await Http.GetFromJsonAsync<List<TilaDTO>>("/tila/all");
+        kayttajat = await Http.GetFromJsonAsync<List<KayttajaDTO>>("/kayttaja/kaikki");
+        kohderyhmat = await Http.GetFromJsonAsync<List<KohderyhmaDTO>>("/kohderyhma/all");
+        tarkastukset = await Http.GetFromJsonAsync<List<TarkastusDTO>>("/tarkastus/kaikki");
+
+        if (valittavatSijainnit.Count == 0)
+        {
+            foreach (var item in Sijainnit)
+            {
+                valittavatSijainnit.Add(new valittavaSijainti
+                    {
+                        sijainti = item,
+                        valittu = false
+                    });
+            }
+        }
+        if (valittavatTyypit.Count == 0)
+        {
+            foreach (var item in Tyypit)
+            {
+                valittavatTyypit.Add(new valittavaTyyppi
+                    {
+                        tyyppi = item,
+                        valittu = false
+                    });
+            }
+        }
+
+    }
+
+    // avoin haku
+    List<HuoltokohdeDTO> filtered => kohdelist.Where(a => a.Nimi.ToLower().Contains(SearchTextNimi.ToLower()))
+    .Where(a => a.Malli.ToLower().Contains(SearchTextMalli.ToLower()))
+    .Where(a => a.Tunnus.ToLower().Contains(SearchTextTunnus.ToLower())).ToList();
+
+    // lisää uusi kohde modal
+    private async Task ShowUusiKohde()
+    {
+        var uusiModal = Modal.Show<UusiKohde>("Uusi huoltokohde");
+        var result = await uusiModal.Result;
+         kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/all/tila1or2");
+    }
+
+    // Edit modal
+    private async Task Edit(int Id)
+    {
+        var parameters = new ModalParameters()
+        .Add(nameof(EditKohde.Id), Id);
+
+        var editModal = Modal.Show<EditKohde>("Kohde", parameters);
+        var result = await editModal.Result;
+
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/all/tila1or2");
+    }
+
+    // muutoshistoria modal
+    private async Task History(int Id)
+    {
+        var parameters = new ModalParameters()
+        .Add(nameof(HistoryKohde.Id), Id);
+
+        var options = new ModalOptions()
+            {
+                Size = ModalSize.Large
+            };
+
+
+        var historyModal = Modal.Show<HistoryKohde>("Muutoshistoria", parameters, options);
+        var result = await historyModal.Result;
+
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/all/tila1or2");
+    }
+
+    // tarkastukset modal
+    private async Task ShowTarkastukset(int Id)
+    {
+        var parameters = new ModalParameters()
+        .Add(nameof(KohteenTarkastukset.kohdeId), Id);
+
+        var uusiModal = Modal.Show<KohteenTarkastukset>($"Tarkastukset", parameters);
+        var result = await uusiModal.Result;
+    }
+
+
+    private async Task FilterSijainti()
+    {
+         valitutSijainnit = valittavatSijainnit.FindAll(x => x.valittu == true).Select(x => x.sijainti).ToArray();
+        kohdelist = alkuperainen;
+        if (kohdelist is not null)
+        {
+            if (valitutSijainnit.Length > 0) kohdelist = kohdelist.FindAll(x => valitutSijainnit.Contains(x.Sijainti));
+            else await OnInitializedAsync();
+        }
+
+    }
+
+    private async Task FilterTyyppi()
+    {
+        valitutTyypit = valittavatTyypit.FindAll(x => x.valittu == true).Select(x => x.tyyppi).ToArray();
+        kohdelist = alkuperainen;
+        if (kohdelist is not null)
+        {
+            if (valitutTyypit.Length > 0) kohdelist = kohdelist.FindAll(x => valitutTyypit.Contains(x.Tyyppi));
+            else await OnInitializedAsync();
+        }
+
+    }
+
+
+    // sorttausta
+    private async Task SortByNimi()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbynimi");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortBySijainti()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbysijainti");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortById()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/all/tila1or2");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortByTyyppi()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbytyyppi");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortByTila()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbytila");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortByLuotu()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbyluotu");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortByLuoja()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbyluoja");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task SortByKohderyhma()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/sortbykohderyhma");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task Filter1()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/filterbykaytossa");
+        alkuperainen = kohdelist;
+
+    }
+
+    private async Task Filter2()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/filterbyepakunnossa");
+        alkuperainen = kohdelist;
+
+    }
+    private async Task Filter3()
+    {
+        kohdelist = await Http.GetFromJsonAsync<List<HuoltokohdeDTO>>("/kohde/filterbypoistettu");
+        alkuperainen = kohdelist;
+
+    }
+
+   
+
+   
+}

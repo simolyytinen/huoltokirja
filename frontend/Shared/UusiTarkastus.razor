@@ -1,0 +1,181 @@
+﻿@using SharedLib
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+@if (kohteet != null && tilat != null)
+{
+    <EditForm Model="tarkastus" OnValidSubmit="Tallenna">
+        <DataAnnotationsValidator />
+        <div class="mb-3">
+            <label for="kohde">Kohde</label>
+            <InputSelect id="kohde" @bind-Value="tarkastus.Idkohde" class="form-select">
+                @foreach (var item in kohteet)
+                {
+                    <option value="@item.Idkohde">@item.Nimi, @item.Sijainti</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="()=>tarkastus.Idkohde" />
+        </div>
+
+        <div class="mb-3">
+            <label for="syy">Tarkastuksen syy</label>
+            <InputText id="syy" @bind-Value="tarkastus.Syy" class="form-control" />
+            <ValidationMessage For="()=>tarkastus.Syy" />
+        </div>
+
+        <div class="mb-3">
+            <label for="havainnot">Havainnot</label>
+            <InputText id="havainnot" @bind-Value="tarkastus.Havainnot" class="form-control" />
+            <ValidationMessage For="()=>tarkastus.Havainnot" />
+        </div>
+
+        <div class="mb-3">
+            <label for="tilanmuunnos">Kohteen tila:</label> <br />
+            <InputRadioGroup id="tilanmuunnos" @bind-Value="tarkastus.TilanMuutos" class="form-control">
+                @for (int i = 0; i < 4; i++)
+                {
+                    <label for="radio">@tilat.Find(x => x.IdkohteenTila == i).Kuvaus</label>
+                    <InputRadio id="radio" Value="@i" /> <br />
+                }
+            </InputRadioGroup>
+            <ValidationMessage For="()=>tarkastus.TilanMuutos" />
+        </div>
+        <div class="mb-3">
+            <InputFile OnChange="@OnInputFileChange" multiple />
+            <br />
+
+            @if (uploadResults.Count > 0)
+            {
+                <ul>
+                    @foreach (var file in uploadResults)
+                    {
+                        <li>
+                            <a style="text-decoration:none" href="@file.Location" target="_blank">@file.FileName</a>
+                            <button type="button" class="btn" @onclick="@(()=> DownloadFile(@file.FileName))" ><span class="oi oi-cloud-download"></span></button>
+                            <button type="button" class="btn" @onclick="@(()=> RemoveFile(@file.FileName))" ><span class="oi oi-trash"></span></button>
+                        </li>
+
+                    }
+                </ul>
+            }
+         </div>
+
+        <button type="submit" class="btn btn-primary" disabled="@Busy">Tallenna</button>
+        <button type="reset" @onclick="Tyhjenna" disabled="@Busy" class="btn btn-secondary">Tyhjenna</button>
+    </EditForm>
+
+    
+}
+else
+{
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+
+
+
+@code {
+        [CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+
+    private bool Busy = false;
+    private TarkastusDTO tarkastus = new TarkastusDTO();
+    private HuoltokohdeDTO[]? kohteet;
+
+    private int maxAllowedFiles = 5;
+    private long maxFileSize = 1024 * 5000;
+    private List<UploadResult> uploadResults = new List<UploadResult>();
+
+    private List<TilaDTO>? tilat;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tilat = await Http.GetFromJsonAsync<List<TilaDTO>>("/tila/all");
+        tilat.Add(new TilaDTO { IdkohteenTila = 0, Kuvaus = "ei muutosta" });
+        kohteet = await Http.GetFromJsonAsync<HuoltokohdeDTO[]>("/kohde/all");
+    }
+
+
+    private async Task Tallenna()
+    {
+        tarkastus.Aikaleima = DateTime.Now;
+        tarkastus.Liitteet = uploadResults;
+
+        await Http.PostAsJsonAsync<TarkastusDTO>("/tarkastus", tarkastus);
+
+        await Modal.CloseAsync();
+    }
+
+    private async Task Tyhjenna()
+    {
+        tarkastus = new TarkastusDTO();
+
+        List<UploadResult> lista = uploadResults.ToList();
+
+        foreach (var upload in lista)
+        {
+            if (upload.FileName is not null) await RemoveFile(upload.FileName);
+        }
+
+    }
+
+    // Tiedostojen lisääminen/poistaminen
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        using var content = new MultipartFormDataContent();
+        Busy = true;
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+
+
+            content.Add(
+                content: fileContent,
+                name: "\"files\"",
+                fileName: DateTime.Now.ToString("dd-MM-yyyy-HHmmss_") + file.Name
+                );
+
+
+        }
+
+        var response = await Http.PostAsync("/tiedosto", content);
+
+        var newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
+
+        if (newUploadResults is not null)
+        {
+            uploadResults = uploadResults.Concat(newUploadResults).ToList();
+        }
+
+        Busy = false;
+    }
+
+    private async Task DownloadFile(string fileName)
+    {
+        var respone = await Http.GetAsync($"/tiedosto/lataa/{fileName}");
+
+        if (!respone.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "Tiedostoa ei löytynyt.");
+        }
+        else
+        {
+            var fileStream = respone.Content.ReadAsStream();
+            using var streamRef = new DotNetStreamReference(stream: fileStream);
+            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+        }
+    }
+
+    private async Task RemoveFile(string fileName)
+    {
+        await Http.DeleteAsync($"/tiedosto/{fileName}");
+
+        uploadResults.Remove(uploadResults.Find(u => u.FileName == fileName));
+    }
+
+}
+

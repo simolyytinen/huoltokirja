@@ -1,0 +1,173 @@
+﻿@using SharedLib
+@inject HttpClient Http
+@inject IModalService ModalService
+@inject NavigationManager NavigationManager
+
+@if(Auditointi != null)
+{
+	<EditForm Model="Auditointi" OnValidSubmit="SaveAudit">
+		<DataAnnotationsValidator/>
+		@*	<label for="pohja">Valitse auditointipohja</label>
+		<InputSelect id="pohja" @bind-Value="auditointipohja.Idauditointipohja" class="form-select mb-3">
+			@foreach (var item in pohjat)
+			{
+				<option value="@item.Idauditointipohja">@item.Selite, @item.KohderyhmaNimi</option>
+			}
+		</InputSelect>*@
+
+			<div class="mb-3">
+			<label for="selite">Selite</label>
+			<InputText id="selite" @bind-Value="Auditointi.Selite" class="form-control" Disabled />
+		</div>
+
+		<div class="mb-3">
+			<label for="kohde">Kohde ID</label>
+			<InputNumber id="kohde" @bind-Value="Auditointi.Idkohde" class="form-control" Disabled />
+		</div>
+
+		@if(kohde != null)
+		{
+			<div class="mb-3">
+				<label for="kohde">Kohde</label>
+				<InputText id="kohde" @bind-Value="kohde.Nimi" class="form-control" Disabled />
+			</div>
+
+			<div class="mb-3">
+				<label for="sijainti">Sijainti</label>
+				<InputText id="kohde" @bind-Value="kohde.Sijainti" class="form-control" Disabled />
+			</div>
+		}
+		
+
+		@if(Auditointi.Vaatimukset != null)
+		{
+			<table class="table table">
+				<thead>
+					<tr>
+						<th>Vaatimus</th>
+						<th>Pakollisuus</th>
+						<th>Täytetty</th>
+						
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var item in Auditointi.Vaatimukset)
+					{
+						<tr>
+							<td>@item.Kuvaus</td>
+							<td>@item.Pakollisuus</td>
+							<td>
+								<InputSelect id="taytetty" @bind-Value="item.Taytetty" class="form-select">
+									<option></option>
+									<option value="1">Täytetty</option>
+									<option value="0">Ei täytetty</option>
+								</InputSelect>
+								<ValidationMessage For="()=>item.Taytetty" />
+							</td>
+						</tr>
+					}
+
+				</tbody>
+			</table>
+		}
+		else
+		{
+			<span>Ei vaatimuksia</span>
+		}
+
+
+	@*	<div class="mb-3">
+			<label for="vaatimus">testi</label>
+			<InputText id="vaatimus" class="form-control" Disabled />
+		</div>
+		<div class="mb-3">
+			<label for="vaatimus">testi</label>
+			<InputText id="vaatimus" class="form-control" Disabled />
+		</div>*@
+		
+
+		<div class="mb-3">
+			<button type="submit" class="btn btn-success">Tallenna</button>
+			<button type="button" class="btn btn-danger" @onclick="Close">Peruuta</button>
+		</div>
+		<span style="color: red">@message</span>
+
+	</EditForm>
+}
+else
+{
+	<div class="text-center">
+		<div class="spinner-border text-primary" role="status">
+			<span class="visually-hidden">Loading...</span>
+		</div>
+	</div>
+}
+
+
+
+
+
+@code {
+	[CascadingParameter] BlazoredModalInstance Modal { get; set; } = default!;
+	private AuditointipohjaDTO pohja;
+
+	[Parameter]
+	public int? Id { get; set; }
+	[Parameter]
+	public AuditointiDTO? Auditointi {get; set;}
+
+	private AuditointiDTO? a = new();
+	private HuoltokohdeDTO? kohde = new();
+	private string message = string.Empty;
+	private bool vaatimusListaChecked = false;
+	private List<string> Fail = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		if(Auditointi != null)
+			kohde = await Http.GetFromJsonAsync<HuoltokohdeDTO>($"/kohde/{Auditointi.Idkohde}");
+	}
+
+	async Task SaveAudit()
+	{
+		//Console.WriteLine("tallennetaan kantaan");
+
+		foreach (var item in Auditointi.Vaatimukset)
+		{
+			if(item.Pakollisuus == "pakollinen" && item.Taytetty == 0)
+			{
+				Fail.Add($"fail");
+			}
+		}
+
+		if (Fail.Contains("fail"))
+		{
+			Auditointi.Lopputulos = 0;
+		}
+		else
+		{
+			Auditointi.Lopputulos = 1;
+
+		}
+
+		var result = await Http.PostAsJsonAsync<AuditointiDTO>("/auditointi/add", Auditointi);
+
+		if (!result.IsSuccessStatusCode)
+		{
+			message = "Virhe tallennuksessa. Tarkista vaatimukset.";
+		}
+		else
+		{
+			await Close();
+
+		}
+
+
+	}
+
+	async Task Close()
+	{
+		await Modal.CloseAsync();
+	}
+
+}
