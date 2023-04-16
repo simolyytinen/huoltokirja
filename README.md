@@ -8,10 +8,10 @@ Tämä projekti oli osa Savonia Code Academy 3 (SCA3) koodarikoulutusta ja se on
 - siistiä / yhtenäistää frontendiä
 
 ## Yleistä
-
+Harjoitustyössä vastattiin tarjouspyyntöön toteuttaa kunnossapitoyritykselle laitteiden kunnossapidon hallintaan soveltuva palvelu web-sovelluksena. Palvelussa piti pystyä kirjautumaan tavallisena käyttäjänä sekä admin-käyttäjänä. Käyttäjätunnusten salasanat tallennettiin tietokantaan salattuna. Vaatimuksena oli toteuttaa GRUD-toiminnot mm. huoltojen ja tarkastusten käsittelyyn, käyttäjätunnusten käsittelyyn, huoltokohteiden käsittelyyn sekä auditointien tekemiseen. Lisäksi huoltokohteille tuli pystyä tallentamaan tiedostoja (Azure Blob Storage). Projektin yksi merkittävä osa oli hyödyntää Azuren pilvipalveluita tietokannan (SQL) sekä dokumenttivaraston (Blob storage) ajamiseen. Mysö valmis sovellus (front ja backend) piti julkaista Azuren App Serviceä käyttäen. Koska projektin kehittämisen aikana käytettiin pilvessä olevia tietokantaa ja dokumenttivarastoa, ei sovellus tällä hetkellä toimi niiden puuttuessa. Minun on tarkoitus muuttaa sovellus käyttämään lokaalia SQLite tietokantaa, jotta voin kehittää sovellusta eteenppäin.
 
 ## Frontend
-
+Projektin selainpään sovellus rakennettiin Blazorilla (ASP.NET) käyttäen C# ohjelmointikieltä.
 
 ## Backend
 
